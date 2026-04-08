@@ -22,6 +22,20 @@
 (require 'cl-lib)
 (require 'agent-shell)
 
+(defcustom agent-shell-ediff-quick-quit nil
+  "When non-nil, bind \\`q' in ediff to skip the extra quit confirmation.
+Uses `agent-shell-ediff-quit' instead of the default `ediff-quit'."
+  :type 'boolean
+  :group 'agent-shell)
+
+(defun agent-shell-ediff--setup-quick-quit ()
+  "Bind \\`q' to `agent-shell-ediff-quit' in the ediff control buffer.
+When `evil-mode' is active, normalize keymaps so the binding takes effect."
+  (when agent-shell-ediff-quick-quit
+    (define-key ediff-mode-map "q" #'agent-shell-ediff-quit)
+    (when (bound-and-true-p evil-mode)
+      (evil-normalize-keymaps))))
+
 (cl-defun agent-shell-ediff (&key old new on-exit on-accept on-reject title file)
   "Ediff-based replacement for `agent-shell-diff'.
 Creates a side-by-side ediff session from OLD and NEW strings.
@@ -177,14 +191,29 @@ Arguments match `agent-shell-diff':
 
     ctl-buf))
 
-(advice-add 'agent-shell-diff :override #'agent-shell-ediff)
-
 (defun agent-shell-ediff-quit ()
   "Quit ediff without the extra confirmation prompt."
   (interactive)
   (ediff-barf-if-not-control-buffer)
   (setq this-command 'ediff-quit)
   (ediff-really-quit nil))
+
+;;;###autoload
+(define-minor-mode agent-shell-ediff-mode
+  "Toggle ediff-based diffs for `agent-shell'.
+When enabled, `agent-shell-diff' is overridden with `agent-shell-ediff'
+so that file-change reviews use an ediff session instead of the
+default diff display."
+  :global t
+  :group 'agent-shell
+  (if agent-shell-ediff-mode
+      (progn
+        (advice-add 'agent-shell-diff :override #'agent-shell-ediff)
+        (add-hook 'ediff-startup-hook #'agent-shell-ediff--setup-quick-quit))
+    (advice-remove 'agent-shell-diff #'agent-shell-ediff)
+    (remove-hook 'ediff-startup-hook #'agent-shell-ediff--setup-quick-quit)
+    (when (eq (lookup-key ediff-mode-map "q") #'agent-shell-ediff-quit)
+      (define-key ediff-mode-map "q" #'ediff-quit))))
 
 (provide 'agent-shell-ediff)
 ;;; agent-shell-ediff.el ends here
