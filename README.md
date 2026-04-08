@@ -2,8 +2,8 @@
 
 Replace `agent-shell-diff` with an ediff-based interface. File changes
 proposed by agent-shell are displayed in a side-by-side ediff session
-with full syntax highlighting. On quit you are prompted to accept or
-reject the change.
+with full syntax highlighting and proper diff-region faces. On quit you
+are prompted to accept or reject the change.
 
 ## Requirements
 

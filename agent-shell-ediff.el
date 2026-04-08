@@ -28,6 +28,13 @@ Uses `agent-shell-ediff-quit' instead of the default `ediff-quit'."
   :type 'boolean
   :group 'agent-shell)
 
+(defcustom agent-shell-ediff-overlay-priority '(nil . 101)
+  "Priority for ediff current-diff and fine-diff overlays.
+Must be higher than `hl-line-overlay-priority' (typically (nil . 100))
+so that ediff highlighting is visible in non-selected windows."
+  :type 'sexp
+  :group 'agent-shell)
+
 (defun agent-shell-ediff--setup-quick-quit ()
   "Bind \\`q' to `agent-shell-ediff-quit' in the ediff control buffer.
 When `evil-mode' is active, normalize keymaps so the binding takes effect."
@@ -35,6 +42,31 @@ When `evil-mode' is active, normalize keymaps so the binding takes effect."
     (define-key ediff-mode-map "q" #'agent-shell-ediff-quit)
     (when (bound-and-true-p evil-mode)
       (evil-normalize-keymaps))))
+
+(defun agent-shell-ediff--boost-overlay-priority ()
+  "Set priority on ediff current-diff and fine-diff overlays.
+This ensures ediff highlighting is visible over `hl-line-mode'
+overlays in non-selected windows."
+  (let ((pri agent-shell-ediff-overlay-priority))
+    ;; Current-diff overlays
+    (dolist (ov-var '(ediff-current-diff-overlay-A
+                      ediff-current-diff-overlay-B
+                      ediff-current-diff-overlay-C
+                      ediff-current-diff-overlay-Ancestor))
+      (when (and (boundp ov-var) (overlayp (symbol-value ov-var)))
+        (overlay-put (symbol-value ov-var) 'priority pri)))
+    ;; Fine-diff overlays for the current difference
+    (when (ediff-valid-difference-p ediff-current-difference)
+      (dolist (buf-type '(A B C))
+        (condition-case nil
+            (let ((vec (ediff-get-fine-diff-vector
+                        ediff-current-difference buf-type)))
+              (when (vectorp vec)
+                (mapc (lambda (ov)
+                        (when (overlayp ov)
+                          (overlay-put ov 'priority pri)))
+                      vec)))
+          (error nil))))))
 
 (cl-defun agent-shell-ediff (&key old new on-exit on-accept on-reject title file)
   "Ediff-based replacement for `agent-shell-diff'.
@@ -164,6 +196,10 @@ Arguments match `agent-shell-diff':
                         nil t))
 
             (ignore-errors (ediff-next-difference))
+            ;; Boost overlay priority so ediff faces win over hl-line
+            (agent-shell-ediff--boost-overlay-priority)
+            (add-hook 'ediff-select-hook
+                      #'agent-shell-ediff--boost-overlay-priority nil t)
             (remove-hook 'ediff-startup-hook startup-hook-fn)))
 
     ;; Register hooks
