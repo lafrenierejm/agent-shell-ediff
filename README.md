@@ -8,7 +8,7 @@ are prompted to accept or reject the change.
 ## Requirements
 
 - Emacs 24.3+
-- [agent-shell](https://github.com/anthropics/claude-code/tree/main/packages/agent-shell)
+- [agent-shell](https://github.com/xenodium/agent-shell)
 
 ## Installation
 
